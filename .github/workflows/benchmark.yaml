@@ -89,16 +89,22 @@ jobs:
           ISUCON_DB_USER: isucon
           ISUCON_DB_PASSWORD: isucon
           ISUCON_DB_NAME: isuride
+          ISUCON_PAYMENT_URL: http://localhost:12346
+          ISUCON_PAYMENT_BIND_PORT: 12346
       
       - name: Wait for server to be ready
         run: |
-          timeout 60 bash -c 'until curl -s -X POST http://localhost:8080/api/initialize; do echo "Waiting for server..."; sleep 2; done' || echo "Server not ready"
+          # 環境変数が正しく設定されているかもう一度確認
+          echo "Current environment:"
+          env | grep ISUCON || true
+          
+          # サーバーが起動するまで待機
+          sleep 10
           
           # サーバーのエンドポイントを確認
           echo "Testing various endpoints:"
           curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/ || echo "Root endpoint failed"
           curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/client || echo "Client endpoint failed"
-          curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8080/api/initialize || echo "Initialize endpoint failed"
           
           # デバッグ情報の追加
           echo "=== Server Status ==="
@@ -110,8 +116,16 @@ jobs:
 
       - name: Initialize application
         run: |
+          # 環境変数を再設定してから初期化
+          export ISUCON_DB_HOST=localhost
+          export ISUCON_DB_PORT=3306
+          export ISUCON_DB_USER=isucon
+          export ISUCON_DB_PASSWORD=isucon
+          export ISUCON_DB_NAME=isuride
+          export ISUCON_PAYMENT_URL=http://localhost:12346
+          export ISUCON_PAYMENT_BIND_PORT=12346
           curl -X POST http://localhost:8080/api/initialize || echo "Initialize failed"
-      
+
       - name: Start matching trigger
         run: |
           nohup bash -c 'while true; do curl -s http://localhost:8080/api/internal/matching; sleep 3; done' > matching.log 2>&1 &
