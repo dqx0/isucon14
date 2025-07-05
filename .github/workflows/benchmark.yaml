@@ -51,10 +51,35 @@ jobs:
             mysql -u isucon -pisucon isuride < webapp/sql/1_DummyUserData.sql
           fi
       
+      - name: Setup static files
+        run: |
+          # 静的ファイルが存在するかチェック
+          if [ -d webapp/public ]; then
+            echo "Static files found in webapp/public"
+            ls -la webapp/public/
+          fi
+          if [ -d webapp/frontend ]; then
+            echo "Frontend files found in webapp/frontend"
+            ls -la webapp/frontend/
+          fi
+          if [ -d webapp/static ]; then
+            echo "Static files found in webapp/static"
+            ls -la webapp/static/
+          fi
+          
+          # nginx設定がある場合は確認
+          if [ -f webapp/nginx.conf ]; then
+            echo "nginx.conf found"
+            cat webapp/nginx.conf
+          fi
+          
       - name: Start Go server
         run: |
           cd webapp/go
           go mod download
+          # サーバー起動前に環境変数を確認
+          echo "Starting server with env vars:"
+          env | grep ISUCON || true
           nohup go run ./... > server.log 2>&1 &
           echo $! > server.pid
           sleep 15
@@ -68,7 +93,13 @@ jobs:
       - name: Wait for server to be ready
         run: |
           timeout 60 bash -c 'until curl -s http://localhost:8080/api/initialize; do echo "Waiting for server..."; sleep 2; done' || echo "Server not ready"
-      
+          
+          # サーバーのエンドポイントを確認
+          echo "Testing various endpoints:"
+          curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/ || echo "Root endpoint failed"
+          curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/client || echo "Client endpoint failed"
+          curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/initialize || echo "Initialize endpoint failed"
+  
       - name: Initialize application
         run: |
           curl -X POST http://localhost:8080/api/initialize || echo "Initialize failed"
