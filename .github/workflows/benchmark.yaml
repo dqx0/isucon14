@@ -25,6 +25,8 @@ jobs:
             # MySQLサービスを開始
             sudo systemctl start mysql
 
+            echo "127.0.0.1 isuride.xiv.isucon.net" | sudo tee -a /etc/hosts
+
             MYSQL_DEBIAN_USERNAME=$(sudo grep -P '^user\s*=' /etc/mysql/debian.cnf | head -1 | awk '{print $3}')
             MYSQL_DEBIAN_PASSWORD=$(sudo grep -P '^password\s*=' /etc/mysql/debian.cnf | head -1 | awk '{print $3}')
 
@@ -76,19 +78,9 @@ jobs:
           nohup bash -c 'while true; do curl -s http://localhost:8080/api/internal/matching; sleep 3; done' > matching.log 2>&1 &
           echo $! > matching.pid
       
-      - name: Build benchmark tool
-        run: |
-          ./bench run . run --addr 127.0.0.1:443 --target https://isuride.xiv.isucon.net --payment-url http://localhost:12346 --payment-bind-port 12346
-      
       - name: Run benchmark
         run: |
-          cd bench
-          timeout 300 ./bench run . run \
-            --addr localhost:8080 \
-            --target http://localhost:8080 \
-            --payment-url http://localhost:12346 \
-            --payment-bind-port 12346 \
-          || echo "Benchmark completed or timed out"
+          ./bench run . run --addr 127.0.0.1:443 --target https://isuride.xiv.isucon.net --payment-url http://localhost:12346 --payment-bind-port 12346
       
       - name: Cleanup
         if: always()
