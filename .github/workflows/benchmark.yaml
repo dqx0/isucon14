@@ -3,12 +3,6 @@ name: Benchmark Test
 on:
   push:
     branches: [ main, dev ]
-    paths:
-      - 'webapp/go/**'
-      - 'bench/**'
-      - 'webapp/sql/**'
-      - '!**/*.md'
-      - '!**/*.txt'
 
 jobs:
   benchmark:
