@@ -92,14 +92,22 @@ jobs:
       
       - name: Wait for server to be ready
         run: |
-          timeout 60 bash -c 'until curl -s http://localhost:8080/api/initialize; do echo "Waiting for server..."; sleep 2; done' || echo "Server not ready"
+          timeout 60 bash -c 'until curl -s -X POST http://localhost:8080/api/initialize; do echo "Waiting for server..."; sleep 2; done' || echo "Server not ready"
           
           # サーバーのエンドポイントを確認
           echo "Testing various endpoints:"
           curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/ || echo "Root endpoint failed"
           curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/client || echo "Client endpoint failed"
-          curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/initialize || echo "Initialize endpoint failed"
-  
+          curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8080/api/initialize || echo "Initialize endpoint failed"
+          
+          # デバッグ情報の追加
+          echo "=== Server Status ==="
+          ps aux | grep -E "(go|main)" | grep -v grep || echo "Go process not found"
+          echo "=== Network Status ==="
+          netstat -tlnp | grep :8080 || echo "Port 8080 not listening"
+          echo "=== Server Log (last 20 lines) ==="
+          tail -20 webapp/go/server.log || echo "No server log found"
+
       - name: Initialize application
         run: |
           curl -X POST http://localhost:8080/api/initialize || echo "Initialize failed"
