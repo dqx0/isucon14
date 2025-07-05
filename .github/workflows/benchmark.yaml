@@ -115,11 +115,49 @@ jobs:
           ISUCON_PAYMENT_URL: http://localhost:12346
           ISUCON_PAYMENT_BIND_PORT: 12346
 
+      - name: Start Go server
+        run: |
+          cd webapp/go
+          go mod download
+          echo "Starting server with env vars:"
+          env | grep ISUCON || true
+          nohup go run ./... > server.log 2>&1 &
+          echo $! > server.pid
+          sleep 15
+          
+          # サーバーが起動したか確認
+          echo "=== Server Status ==="
+          ps aux | grep -E "(go|main)" | grep -v grep || echo "Go process not found"
+          echo "=== Network Status ==="
+          netstat -tlnp | grep :8080 || echo "Port 8080 not listening"
+          echo "=== Server Log (first 20 lines) ==="
+          head -20 server.log || echo "No server log found"
+        env:
+          ISUCON_DB_HOST: localhost
+          ISUCON_DB_PORT: 3306
+          ISUCON_DB_USER: isucon
+          ISUCON_DB_PASSWORD: isucon
+          ISUCON_DB_NAME: isuride
+          ISUCON_PAYMENT_URL: http://localhost:12346
+          ISUCON_PAYMENT_BIND_PORT: 12346
+
+      - name: Initialize application
+        run: |
+          # 初期化APIを呼び出し
+          curl -X POST http://localhost:8080/api/initialize || echo "Initialize failed"
+        env:
+          ISUCON_DB_HOST: localhost
+          ISUCON_DB_PORT: 3306
+          ISUCON_DB_USER: isucon
+          ISUCON_DB_PASSWORD: isucon
+          ISUCON_DB_NAME: isuride
+          ISUCON_PAYMENT_URL: http://localhost:12346
+          ISUCON_PAYMENT_BIND_PORT: 12346
+
       - name: Start matching trigger
         run: |
           nohup bash -c 'while true; do curl -s http://localhost:8080/api/internal/matching; sleep 3; done' > matching.log 2>&1 &
-          echo $! > matching.pid
-      
+          echo $! > matching.pid      
       - name: Run benchmark
         run: |
           ./bench run . run --addr 127.0.0.1:8080 --target http://isuride.xiv.isucon.net --payment-url http://localhost:12346 --payment-bind-port 12346
