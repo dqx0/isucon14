@@ -1,0 +1,5 @@
+go/*
+local/*
+webapp/*
+!webapp/go
+!webapp/openapi.yaml
