@@ -1,22 +1,22 @@
 package main
 
 import (
-	crand "crypto/rand"
-	"encoding/json"
-	"fmt"
-	"log/slog"
-	"net"
-	"net/http"
-	"os"
-	"os/exec"
-	"strconv"
+    crand "crypto/rand"
+    "encoding/json"
+    "fmt"
+    "log/slog"
+    "net"
+    "net/http"
+    "os"
+    "os/exec"
+    "strconv"
+    "time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-sql-driver/mysql"
-	"github.com/jmoiron/sqlx"
+    "github.com/go-chi/chi/v5"
+    "github.com/go-chi/chi/v5/middleware"
+    "github.com/go-sql-driver/mysql"
+    "github.com/jmoiron/sqlx"
 )
-
 var db *sqlx.DB
 
 func main() {
@@ -64,6 +64,11 @@ func setup() http.Handler {
 		panic(err)
 	}
 	db = _db
+
+	db.SetMaxOpenConns(50)    // 最大接続数を増加
+    db.SetMaxIdleConns(25)    // アイドル接続数を増加
+    db.SetConnMaxLifetime(5 * time.Minute)
+    db.SetConnMaxIdleTime(1 * time.Minute)
 
 	mux := chi.NewRouter()
 	mux.Use(middleware.Logger)

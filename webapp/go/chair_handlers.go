@@ -185,8 +185,16 @@ type chairGetNotificationResponseData struct {
 }
 
 func chairGetNotification(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	chair := ctx.Value("chair").(*Chair)
+    ctx := r.Context()
+    chair := ctx.Value("chair").(*Chair)
+
+    // コンテキストキャンセルをチェック
+    select {
+    case <-ctx.Done():
+        writeError(w, http.StatusRequestTimeout, ctx.Err())
+        return
+    default:
+    }
 
 	tx, err := db.Beginx()
 	if err != nil {

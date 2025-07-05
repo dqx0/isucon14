@@ -1,6 +1,7 @@
 .cache/*
 go/*
 local/*
+.local/*
 webapp/*
 !webapp/go
 !webapp/openapi.yaml
