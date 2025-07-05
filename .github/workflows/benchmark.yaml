@@ -78,8 +78,7 @@ jobs:
       
       - name: Build benchmark tool
         run: |
-          cd bench
-          go build -buildvcs=false -ldflags "-s -w" -o bench .
+          ./bench run . run --addr 127.0.0.1:443 --target https://isuride.xiv.isucon.net --payment-url http://localhost:12346 --payment-bind-port 12346
       
       - name: Run benchmark
         run: |
