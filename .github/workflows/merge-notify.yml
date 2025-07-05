@@ -24,6 +24,20 @@ jobs:
             -d @- \
             ${{ secrets.DISCORD_WEBHOOK_URL }} << EOF
           {
-            "content": "[\`${{ github.repository }}:${{ github.ref_name }}\`] $COMMIT_COUNT new $COMMIT_WORD\n\`$COMMIT_HASH\` ${{ github.event.head_commit.message }} - ${{ github.event.head_commit.author.name }}"
+            "embeds": [
+              {
+                "title": "${{ github.repository }}:${{ github.ref_name }}",
+                "description": "$COMMIT_COUNT new $COMMIT_WORD",
+                "url": "${{ github.event.compare }}",
+                "color": 7506394,
+                "fields": [
+                  {
+                    "name": "Latest Commit",
+                    "value": "\`$COMMIT_HASH\` ${{ github.event.head_commit.message }} - ${{ github.event.head_commit.author.name }}",
+                    "inline": false
+                  }
+                ]
+              }
+            ]
           }
           EOF
