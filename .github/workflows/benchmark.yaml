@@ -2,7 +2,7 @@ name: Benchmark Test
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, dev ]
 
 jobs:
   benchmark:
