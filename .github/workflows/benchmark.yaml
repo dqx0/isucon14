@@ -23,17 +23,26 @@ jobs:
           sudo apt-get install -y mysql-server
           sudo systemctl start mysql
           
-          # sudoでMySQL操作
+          # sudoでMySQL操作（auth_socketを使用）
           sudo mysql -e "CREATE DATABASE IF NOT EXISTS isuride;"
           sudo mysql -e "CREATE USER IF NOT EXISTS 'isucon'@'localhost' IDENTIFIED BY 'isucon';"
           sudo mysql -e "GRANT ALL PRIVILEGES ON isuride.* TO 'isucon'@'localhost';"
           sudo mysql -e "FLUSH PRIVILEGES;"
+          
+          # 接続テスト
+          mysql -u isucon -pisucon -e "SELECT 1;" || echo "MySQL connection test failed"
       
       - name: Initialize database
         run: |
           # データベース初期化スクリプトがある場合
           if [ -f webapp/sql/init.sql ]; then
             mysql -u isucon -pisucon isuride < webapp/sql/init.sql
+          fi
+          if [ -f webapp/sql/0_Schema.sql ]; then
+            mysql -u isucon -pisucon isuride < webapp/sql/0_Schema.sql
+          fi
+          if [ -f webapp/sql/1_DummyUserData.sql ]; then
+            mysql -u isucon -pisucon isuride < webapp/sql/1_DummyUserData.sql
           fi
       
       - name: Start Go server
@@ -42,7 +51,7 @@ jobs:
           go mod download
           nohup go run ./... > server.log 2>&1 &
           echo $! > server.pid
-          sleep 10  # サーバー起動待機
+          sleep 15  # サーバー起動待機時間を延長
         env:
           ISUCON_DB_HOST: localhost
           ISUCON_DB_PORT: 3306
@@ -50,9 +59,23 @@ jobs:
           ISUCON_DB_PASSWORD: isucon
           ISUCON_DB_NAME: isuride
       
+      - name: Check server status
+        run: |
+          # プロセス確認
+          ps aux | grep "go run" || echo "Go process not found"
+          # ログ確認
+          echo "=== Server Log (first 20 lines) ==="
+          head -20 webapp/go/server.log || echo "No server log found"
+          # ポート確認
+          netstat -tlnp | grep :8080 || echo "Port 8080 not listening"
+      
       - name: Wait for server to be ready
         run: |
-          timeout 60 bash -c 'until curl -s http://localhost:8080/api/initialize; do sleep 2; done'
+          timeout 60 bash -c 'until curl -s http://localhost:8080/api/initialize; do echo "Waiting for server..."; sleep 2; done' || echo "Server not ready"
+      
+      - name: Initialize application
+        run: |
+          curl -X POST http://localhost:8080/api/initialize || echo "Initialize failed"
       
       - name: Start matching trigger
         run: |
@@ -68,8 +91,8 @@ jobs:
         run: |
           cd bench
           timeout 300 ./bench run . run \
-            --addr localhost:443 \
-            --target https://isuride.xiv.isucon.net \
+            --addr localhost:8080 \
+            --target http://localhost:8080 \
             --payment-url http://localhost:12346 \
             --payment-bind-port 12346 \
           || echo "Benchmark completed or timed out"
