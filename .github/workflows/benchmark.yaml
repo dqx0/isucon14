@@ -3,6 +3,12 @@ name: Benchmark Test
 on:
   push:
     branches: [ main, dev ]
+    paths:
+      - 'webapp/go/**'
+      - 'bench/**'
+      - 'webapp/sql/**'
+      - '!**/*.md'
+      - '!**/*.txt'
 
 jobs:
   benchmark:
@@ -19,18 +25,22 @@ jobs:
       
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y mysql-server
-          sudo systemctl start mysql
-          
-          # 全てのMySQL操作をsudoで実行
-          sudo mysql -e "CREATE DATABASE IF NOT EXISTS isuride;"
-          sudo mysql -e "CREATE USER IF NOT EXISTS 'isucon'@'localhost' IDENTIFIED BY 'isucon';"
-          sudo mysql -e "GRANT ALL PRIVILEGES ON isuride.* TO 'isucon'@'localhost';"
-          sudo mysql -e "FLUSH PRIVILEGES;"
-          
-          # 接続テスト
-          mysql -u isucon -pisucon -e "SELECT 1;" || echo "MySQL connection test failed"
+            sudo apt-get update
+            sudo apt-get install -y mysql-server
+
+            # MySQLサービスを開始
+            sudo systemctl start mysql
+
+            MYSQL_DEBIAN_USERNAME=$(sudo grep -P '^user\s*=' /etc/mysql/debian.cnf | head -1 | awk '{print $3}')
+            MYSQL_DEBIAN_PASSWORD=$(sudo grep -P '^password\s*=' /etc/mysql/debian.cnf | head -1 | awk '{print $3}')
+
+            mysql -u $MYSQL_DEBIAN_USERNAME -p$MYSQL_DEBIAN_PASSWORD -e "CREATE DATABASE IF NOT EXISTS isuride;"
+            mysql -u $MYSQL_DEBIAN_USERNAME -p$MYSQL_DEBIAN_PASSWORD -e "CREATE USER IF NOT EXISTS 'isucon'@'localhost' IDENTIFIED BY 'isucon';"
+            mysql -u $MYSQL_DEBIAN_USERNAME -p$MYSQL_DEBIAN_PASSWORD -e "GRANT ALL PRIVILEGES ON isuride.* TO 'isucon'@'localhost';"
+            mysql -u $MYSQL_DEBIAN_USERNAME -p$MYSQL_DEBIAN_PASSWORD -e "FLUSH PRIVILEGES;"
+            
+            # 接続テスト
+            mysql -u isucon -pisucon -e "SELECT 1;" || echo "MySQL connection test failed"
       
       - name: Initialize database
         run: |
@@ -51,23 +61,13 @@ jobs:
           go mod download
           nohup go run ./... > server.log 2>&1 &
           echo $! > server.pid
-          sleep 15  # サーバー起動待機時間を延長
+          sleep 15
         env:
           ISUCON_DB_HOST: localhost
           ISUCON_DB_PORT: 3306
           ISUCON_DB_USER: isucon
           ISUCON_DB_PASSWORD: isucon
           ISUCON_DB_NAME: isuride
-      
-      - name: Check server status
-        run: |
-          # プロセス確認
-          ps aux | grep "go run" || echo "Go process not found"
-          # ログ確認
-          echo "=== Server Log (first 20 lines) ==="
-          head -20 webapp/go/server.log || echo "No server log found"
-          # ポート確認
-          netstat -tlnp | grep :8080 || echo "Port 8080 not listening"
       
       - name: Wait for server to be ready
         run: |
@@ -100,24 +100,13 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          # プロセス終了
           if [ -f webapp/go/server.pid ]; then
             kill $(cat webapp/go/server.pid) || true
           fi
           if [ -f matching.pid ]; then
             kill $(cat matching.pid) || true
           fi
-          # ログ出力
           echo "=== Server Log ==="
           cat webapp/go/server.log || true
           echo "=== Matching Log ==="
           cat matching.log || true
-      
-      - name: Upload logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-logs
-          path: |
-            webapp/go/server.log
-            matching.log
